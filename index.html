@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Полка" />
+  <meta name="theme-color" content="#0c1612" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
+  <title>Полка — учёт прочитанного</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <aside id="phone-banner" class="phone-banner hidden" role="note">
+    <strong>С телефона:</strong> откройте не <code>127.0.0.1</code>, а адрес Mac в Wi‑Fi
+    (его показывает <code>./start.sh</code>), например
+    <code id="phone-hint-url">http://192.168.x.x:8765</code>.
+    Mac и iPhone должны быть в одной сети. Затем: Поделиться → На экран «Домой».
+  </aside>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1 class="brand-name">Полка</h1>
+        <p class="brand-tag">личная библиотека и заметки</p>
+      </div>
+    </div>
+    <nav class="nav" role="tablist">
+      <button class="nav-btn active" data-view="library" role="tab" aria-selected="true">Библиотека</button>
+      <button class="nav-btn" data-view="stats" role="tab" aria-selected="false">Статистика</button>
+      <button class="nav-btn" data-view="challenges" role="tab" aria-selected="false">Вызовы</button>
+      <button class="nav-btn" data-view="notes" role="tab" aria-selected="false">Заметки</button>
+    </nav>
+    <div class="top-actions">
+      <button class="btn ghost" id="btn-import" title="Импорт JSON">Импорт</button>
+      <button class="btn ghost" id="btn-export" title="Экспорт JSON">JSON</button>
+      <button class="btn ghost" id="btn-export-csv" title="Экспорт CSV для Excel / Numbers">CSV</button>
+      <a class="btn ghost" id="btn-download-mac" href="polka.tar.gz" download title="Скачать Полку на Mac">↓ Mac</a>
+      <button class="btn ghost sync-btn" id="btn-sync" data-state="off" title="Синхронизация iPhone ↔ Mac">Синхр.</button>
+      <button class="btn primary" id="btn-add">+ Книга</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LIBRARY -->
+    <section id="view-library" class="view active">
+      <div class="toolbar">
+        <div class="search-wrap">
+          <input id="library-search" type="search" placeholder="Поиск по названию, автору, жанру…" autocomplete="off" />
+        </div>
+        <div class="filters">
+          <select id="filter-status">
+            <option value="all">Все статусы</option>
+            <option value="reading">Читаю</option>
+            <option value="finished">Прочитано</option>
+            <option value="want">Хочу прочитать</option>
+            <option value="abandoned">Брошено</option>
+            <option value="reread">Перечитываю</option>
+          </select>
+          <select id="filter-genre">
+            <option value="all">Все жанры</option>
+          </select>
+          <select id="filter-year" aria-label="Год прочтения">
+            <option value="all">Все годы</option>
+          </select>
+          <select id="filter-month" aria-label="Месяц прочтения">
+            <option value="all">Все месяцы</option>
+            <option value="01">Январь</option>
+            <option value="02">Февраль</option>
+            <option value="03">Март</option>
+            <option value="04">Апрель</option>
+            <option value="05">Май</option>
+            <option value="06">Июнь</option>
+            <option value="07">Июль</option>
+            <option value="08">Август</option>
+            <option value="09">Сентябрь</option>
+            <option value="10">Октябрь</option>
+            <option value="11">Ноябрь</option>
+            <option value="12">Декабрь</option>
+          </select>
+          <select id="sort-by">
+            <option value="updated">Недавно обновлённые</option>
+            <option value="title">Название</option>
+            <option value="author">Автор</option>
+            <option value="rating">Оценка</option>
+            <option value="pages">Страницы</option>
+            <option value="finishedAt">Дата прочтения</option>
+            <option value="year">Год издания</option>
+          </select>
+          <div class="view-toggle" role="group" aria-label="Вид">
+            <button class="icon-btn active" data-layout="grid" title="Сетка" aria-pressed="true">▦</button>
+            <button class="icon-btn" data-layout="list" title="Список" aria-pressed="false">☰</button>
+          </div>
+        </div>
+      </div>
+      <div id="library-empty" class="empty-state hidden">
+        <p class="empty-title">Полка пока пуста</p>
+        <p class="empty-text">Добавьте первую книгу — можно искать по русским каталогам и подтянуть обложку.</p>
+        <button class="btn primary" id="btn-add-empty">Добавить книгу</button>
+      </div>
+      <div id="library-grid" class="book-grid"></div>
+    </section>
+
+    <!-- STATS -->
+    <section id="view-stats" class="view">
+      <div class="stats-hero">
+        <div>
+          <p class="eyebrow">Обзор чтения</p>
+          <h2 class="section-title">Ваша инфографика</h2>
+        </div>
+        <select id="stats-year">
+          <option value="all">Все годы</option>
+        </select>
+      </div>
+      <div class="kpi-row" id="kpi-row"></div>
+      <div class="charts-grid">
+        <article class="panel chart-panel">
+          <h3>Жанры</h3>
+          <canvas id="chart-genres"></canvas>
+        </article>
+        <article class="panel chart-panel">
+          <h3>Страницы по месяцам</h3>
+          <canvas id="chart-pages"></canvas>
+        </article>
+        <article class="panel chart-panel">
+          <h3>Оценки</h3>
+          <canvas id="chart-ratings"></canvas>
+        </article>
+        <article class="panel chart-panel">
+          <h3>Статусы</h3>
+          <canvas id="chart-status"></canvas>
+        </article>
+        <article class="panel chart-panel wide">
+          <h3>Темп чтения по годам</h3>
+          <canvas id="chart-years"></canvas>
+        </article>
+        <article class="panel chart-panel">
+          <h3>Топ авторов</h3>
+          <ul id="top-authors" class="rank-list"></ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- CHALLENGES -->
+    <section id="view-challenges" class="view">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Мотивация</p>
+          <h2 class="section-title">Книжные вызовы</h2>
+        </div>
+        <button class="btn primary" id="btn-add-challenge">+ Вызов</button>
+      </div>
+      <div id="challenges-list" class="challenges-list"></div>
+    </section>
+
+    <!-- NOTES -->
+    <section id="view-notes" class="view">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Из записной</p>
+          <h2 class="section-title">Все заметки и цитаты</h2>
+        </div>
+        <input id="notes-search" type="search" placeholder="Найти в заметках…" />
+      </div>
+      <div id="notes-feed" class="notes-feed"></div>
+    </section>
+  </main>
+
+  <!-- ADD / EDIT MODAL -->
+  <dialog id="book-modal" class="modal">
+    <form id="book-form" method="dialog">
+      <header class="modal-head">
+        <h2 id="modal-title">Новая книга</h2>
+        <button type="button" class="icon-btn" id="modal-close" aria-label="Закрыть">✕</button>
+      </header>
+
+      <div class="lookup-block">
+        <label>Найти в русских каталогах (Fantlab, LiveLib, Open Library, Google…)</label>
+        <div class="lookup-row">
+          <input id="lookup-query" type="search" placeholder="Название, автор или ISBN…" />
+          <button type="button" class="btn primary" id="btn-lookup">Искать</button>
+        </div>
+        <p class="lookup-hint">Подтягиваются обложка, страницы, год и издательство.</p>
+        <div id="lookup-results" class="lookup-results"></div>
+      </div>
+
+      <div class="form-layout">
+        <div class="cover-col">
+          <div class="cover-preview" id="cover-preview">
+            <span>Обложка</span>
+          </div>
+          <input type="url" id="field-cover" placeholder="URL обложки" />
+        </div>
+        <div class="fields-col">
+          <div class="field-row">
+            <label>Название *
+              <input id="field-title" required maxlength="300" />
+            </label>
+            <label>Автор *
+              <input id="field-author" required maxlength="200" />
+            </label>
+          </div>
+          <div class="field-row">
+            <label>Жанры
+              <input id="field-genres" placeholder="роман, фантастика, эссе…" />
+            </label>
+            <label>Язык
+              <input id="field-language" placeholder="русский" list="lang-list" />
+              <datalist id="lang-list">
+                <option value="русский"></option>
+                <option value="английский"></option>
+                <option value="перевод"></option>
+              </datalist>
+            </label>
+          </div>
+          <div class="field-row three">
+            <label>Страниц
+              <input id="field-pages" type="number" min="1" max="20000" />
+            </label>
+            <label>Год
+              <input id="field-year" type="number" min="1000" max="2100" />
+            </label>
+            <label>ISBN
+              <input id="field-isbn" />
+            </label>
+          </div>
+          <div class="field-row three">
+            <label>Статус
+              <select id="field-status">
+                <option value="want">Хочу прочитать</option>
+                <option value="reading">Читаю</option>
+                <option value="finished">Прочитано</option>
+                <option value="abandoned">Брошено</option>
+                <option value="reread">Перечитываю</option>
+              </select>
+            </label>
+            <label>Начал
+              <input id="field-started" type="date" />
+            </label>
+            <label>Закончил
+              <input id="field-finished" type="date" />
+            </label>
+          </div>
+          <div class="field-row">
+            <label>Оценка (0–10, шаг 0.5)
+              <div class="rating-control">
+                <input id="field-rating" type="range" min="0" max="10" step="0.5" value="0" />
+                <output id="rating-output">—</output>
+              </div>
+            </label>
+            <label>Издательство
+              <input id="field-publisher" list="publisher-list" placeholder="АСТ, Эксмо, Азбука, МИФ…" />
+              <datalist id="publisher-list"></datalist>
+            </label>
+          </div>
+          <label>Краткий отзыв
+            <textarea id="field-review" rows="2" placeholder="Что запомнилось…"></textarea>
+          </label>
+          <label>Заметки и цитаты
+            <textarea id="field-notes" rows="4" placeholder="Цитаты, мысли, спойлеры для себя…"></textarea>
+          </label>
+          <label>Теги
+            <input id="field-tags" placeholder="классика, уют, перечитать" />
+          </label>
+        </div>
+      </div>
+
+      <footer class="modal-foot">
+        <button type="button" class="btn danger ghost hidden" id="btn-delete">Удалить</button>
+        <div class="spacer"></div>
+        <button type="button" class="btn ghost" id="btn-cancel">Отмена</button>
+        <button type="submit" class="btn primary" id="btn-save">Сохранить</button>
+      </footer>
+      <input type="hidden" id="field-id" />
+    </form>
+  </dialog>
+
+  <!-- BOOK DETAIL -->
+  <dialog id="detail-modal" class="modal detail-modal">
+    <div id="detail-content"></div>
+  </dialog>
+
+  <!-- CHALLENGE MODAL -->
+  <dialog id="challenge-modal" class="modal compact">
+    <form id="challenge-form" method="dialog">
+      <header class="modal-head">
+        <h2>Новый вызов</h2>
+        <button type="button" class="icon-btn" id="challenge-close" aria-label="Закрыть">✕</button>
+      </header>
+      <label>Название
+        <input id="ch-title" required placeholder="50 книг в 2026" />
+      </label>
+      <div class="field-row">
+        <label>Тип
+          <select id="ch-type">
+            <option value="books">Книг</option>
+            <option value="pages">Страниц</option>
+            <option value="genre">Жанр</option>
+            <option value="rating">Средняя оценка ≥</option>
+          </select>
+        </label>
+        <label>Цель
+          <input id="ch-target" type="number" min="1" step="0.5" required value="24" />
+        </label>
+      </div>
+      <label id="ch-genre-wrap" class="hidden">Жанр для вызова
+        <input id="ch-genre" placeholder="фантастика" />
+      </label>
+      <div class="field-row">
+        <label>С
+          <input id="ch-from" type="date" required />
+        </label>
+        <label>По
+          <input id="ch-to" type="date" required />
+        </label>
+      </div>
+      <footer class="modal-foot">
+        <div class="spacer"></div>
+        <button type="button" class="btn ghost" id="ch-cancel">Отмена</button>
+        <button type="submit" class="btn primary">Создать</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- SYNC MODAL -->
+  <dialog id="sync-modal" class="modal compact">
+    <div class="sync-body">
+      <header class="modal-head">
+        <h2>Синхронизация iPhone ↔ Mac</h2>
+        <button type="button" class="icon-btn" id="sync-close" aria-label="Закрыть">✕</button>
+      </header>
+      <p class="sync-state" id="sync-state"></p>
+      <div id="sync-off">
+        <p class="lookup-hint">Полка будет храниться в вашем приватном репозитории GitHub <code id="sync-repo"></code>
+          и одинаково открываться на всех устройствах. Нужен ключ доступа — создаётся один раз.</p>
+        <ol class="sync-steps">
+          <li>Откройте <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">страницу создания ключа</a>.</li>
+          <li><b>Token name</b>: Полка. <b>Expiration</b>: самый долгий срок (или No expiration).</li>
+          <li><b>Repository access</b> → Only select repositories → <b>polka-data</b>.</li>
+          <li><b>Permissions</b> → Repository permissions → <b>Contents</b>: Read and write.</li>
+          <li>Нажмите <b>Generate token</b>, скопируйте ключ и вставьте ниже.</li>
+        </ol>
+        <label>Ключ доступа
+          <input id="sync-token" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…" />
+        </label>
+      </div>
+      <div id="sync-on" class="hidden">
+        <p class="lookup-hint">Чтобы подключить iPhone: наведите камеру телефона на QR-код и откройте ссылку.
+          Ключ вводить не придётся. Никому эту ссылку не отправляйте.</p>
+        <div id="sync-qr" class="sync-qr"></div>
+        <button type="button" class="btn ghost" id="sync-copy">Скопировать ссылку для телефона</button>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="btn danger ghost hidden" id="sync-disconnect">Отключить</button>
+        <div class="spacer"></div>
+        <button type="button" class="btn ghost hidden" id="sync-now">Синхронизировать</button>
+        <button type="button" class="btn primary" id="sync-connect">Подключить</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <input type="file" id="import-file" accept="application/json,.json" hidden />
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
