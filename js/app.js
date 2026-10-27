@@ -34,10 +34,13 @@ import {
 } from "./sync.js";
 import {
   STATUS_LABELS,
-  filterBooksByYear,
+  MONTH_NAMES,
+  bookDate,
+  filterBooksByPeriod,
+  monthCounts,
+  monthlyActivity,
   computeKpis,
   genreDistribution,
-  pagesByMonth,
   ratingHistogram,
   statusDistribution,
   booksPerYear,
@@ -325,8 +328,7 @@ function getFilteredBooks() {
 
   let list = [...state.books];
   if (status !== "all") list = list.filter((b) => b.status === status);
-  if (year !== "all") list = list.filter((b) => (b.finishedAt || "").slice(0, 4) === year);
-  if (month !== "all") list = list.filter((b) => (b.finishedAt || "").slice(5, 7) === month);
+  list = filterBooksByPeriod(list, year, month);
   if (genre !== "all") {
     list = list.filter((b) =>
       (b.genres || []).some((g) => g.toLowerCase() === genre.toLowerCase()),
@@ -346,7 +348,7 @@ function getFilteredBooks() {
     author: (a, b) => a.author.localeCompare(b.author, "ru"),
     rating: (a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0),
     pages: (a, b) => (Number(b.pages) || 0) - (Number(a.pages) || 0),
-    finishedAt: (a, b) => (b.finishedAt || "").localeCompare(a.finishedAt || ""),
+    finishedAt: (a, b) => bookDate(b).localeCompare(bookDate(a)),
     year: (a, b) => (Number(b.year) || 0) - (Number(a.year) || 0),
     updated: (a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""),
   };
@@ -363,15 +365,64 @@ function renderGenreFilter() {
   if ([...select.options].some((o) => o.value === current)) select.value = current;
 }
 
+function fillPeriodSelects(yearSel, monthSel, books) {
+  const currentYear = yearSel.value || "all";
+  const yearCounts = new Map();
+  for (const b of books) {
+    const y = bookDate(b).slice(0, 4);
+    if (/^\d{4}$/.test(y)) yearCounts.set(y, (yearCounts.get(y) || 0) + 1);
+  }
+  const years = [...yearCounts.keys()].sort((a, b) => b.localeCompare(a));
+  yearSel.innerHTML = `<option value="all">Все годы</option>`
+    + years.map((y) => `<option value="${y}">${y} · ${yearCounts.get(y)}</option>`).join("");
+  yearSel.value = years.includes(currentYear) ? currentYear : "all";
+
+  const currentMonth = monthSel.value || "all";
+  const counts = monthCounts(books, yearSel.value);
+  monthSel.innerHTML = `<option value="all">Все месяцы</option>`
+    + MONTH_NAMES.map((name, i) => {
+      const key = String(i + 1).padStart(2, "0");
+      const n = counts.get(key) || 0;
+      return `<option value="${key}"${n ? "" : " disabled"}>${name}${n ? ` · ${n}` : ""}</option>`;
+    }).join("");
+  monthSel.value = counts.get(currentMonth) ? currentMonth : "all";
+}
+
 function renderYearFilter() {
-  const select = $("#filter-year");
-  const current = select.value;
-  const years = [...new Set(
-    state.books.map((b) => (b.finishedAt || "").slice(0, 4)).filter((y) => /^\d{4}$/.test(y)),
-  )].sort((a, b) => b.localeCompare(a));
-  select.innerHTML = `<option value="all">Все годы</option>`
-    + years.map((y) => `<option value="${y}">${y}</option>`).join("");
-  if ([...select.options].some((o) => o.value === current)) select.value = current;
+  fillPeriodSelects($("#filter-year"), $("#filter-month"), state.books);
+}
+
+function pluralBooks(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "книга";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "книги";
+  return "книг";
+}
+
+function periodLabel(year, month) {
+  if (year === "all" && month === "all") return "";
+  const m = month === "all" ? "" : MONTH_NAMES[Number(month) - 1];
+  if (year === "all") return `${m}, все годы`;
+  return m ? `${m} ${year}` : `${year} год`;
+}
+
+function renderPeriodSummary(list) {
+  const box = $("#period-summary");
+  const label = periodLabel($("#filter-year").value, $("#filter-month").value);
+  box.classList.toggle("hidden", !label);
+  if (!label) return;
+  const read = list.filter((b) => b.status === "finished" || b.status === "reread");
+  const pages = read.reduce((s, b) => s + (Number(b.pages) || 0), 0);
+  $("#period-text").textContent = `${label}: ${list.length} ${pluralBooks(list.length)}`
+    + (read.length ? ` · прочитано ${read.length}` : "")
+    + (pages ? ` · ${pages.toLocaleString("ru-RU")} стр.` : "");
+}
+
+function resetPeriod() {
+  $("#filter-year").value = "all";
+  $("#filter-month").value = "all";
+  renderLibrary();
 }
 
 function coverHtml(book, className = "cover") {
@@ -404,6 +455,7 @@ function renderLibrary() {
   renderGenreFilter();
   renderYearFilter();
   const list = getFilteredBooks();
+  renderPeriodSummary(list);
   const grid = $("#library-grid");
   const empty = $("#library-empty");
   grid.classList.toggle("list", state.layout === "list");
@@ -561,8 +613,23 @@ function readFormBook() {
   };
 }
 
+function todayIso() {
+  return new Date().toLocaleDateString("sv-SE");
+}
+
+function autofillDates() {
+  const status = $("#field-status").value;
+  if ((status === "finished" || status === "reread") && !$("#field-finished").value) {
+    $("#field-finished").value = todayIso();
+  }
+  if (status === "reading" && !$("#field-started").value) {
+    $("#field-started").value = todayIso();
+  }
+}
+
 function saveBookFromForm(e) {
   e.preventDefault();
+  autofillDates();
   const book = readFormBook();
   if (!book.title || !book.author) {
     toast("Укажите название и автора");
@@ -647,16 +714,48 @@ function chartDefaults() {
   Chart.defaults.font.family = "'Figtree', sans-serif";
 }
 
+let statsInitialized = false;
+
+function renderPeriodBooks(books, label) {
+  $("#period-books-title").textContent = label ? `Книги: ${label}` : "Книги периода";
+  const sorted = [...books].sort((a, b) => bookDate(b).localeCompare(bookDate(a)));
+  const box = $("#period-books");
+  if (!sorted.length) {
+    box.innerHTML = `<p class="empty-text">За этот период книг нет.</p>`;
+    return;
+  }
+  box.innerHTML = sorted.slice(0, 60).map((b) => `
+    <button type="button" class="period-book" data-id="${b.id}">
+      ${coverHtml(b, "period-cover")}
+      <span class="period-book-meta">
+        <span class="title">${escapeHtml(b.title)}</span>
+        <span class="author">${escapeHtml(b.author)}</span>
+        <span class="period-book-info">${STATUS_LABELS[b.status] || ""} · ${bookDate(b).split("-").reverse().join(".")}${Number(b.rating) > 0 ? ` · ★ ${formatRating(b.rating)}` : ""}</span>
+      </span>
+    </button>
+  `).join("") + (sorted.length > 60 ? `<p class="empty-text">…и ещё ${sorted.length - 60}</p>` : "");
+  bindCoverFallbacks(box);
+}
+
 function renderStats() {
   const yearSel = $("#stats-year");
-  const years = availableYears(state.books);
-  const prev = yearSel.value || "all";
-  yearSel.innerHTML = `<option value="all">Все годы</option>`
-    + years.map((y) => `<option value="${y}">${y}</option>`).join("");
-  if ([...yearSel.options].some((o) => o.value === prev)) yearSel.value = prev;
+  const monthSel = $("#stats-month");
+  if (!statsInitialized) {
+    statsInitialized = true;
+    const thisYear = String(new Date().getFullYear());
+    if (availableYears(state.books).includes(thisYear)) {
+      yearSel.innerHTML = `<option value="${thisYear}">${thisYear}</option>`;
+      yearSel.value = thisYear;
+    }
+  }
+  fillPeriodSelects(yearSel, monthSel, state.books);
 
   const year = yearSel.value;
-  const books = filterBooksByYear(state.books, year);
+  const month = monthSel.value;
+  const books = filterBooksByPeriod(state.books, year, month);
+  const label = periodLabel(year, month);
+  $("#stats-caption").textContent = label ? `Период: ${label}` : "Период: всё время";
+  renderPeriodBooks(books, label);
 
   $("#kpi-row").innerHTML = computeKpis(books).map((k, i) => `
     <article class="kpi" style="animation-delay:${i * 50}ms">
@@ -683,21 +782,58 @@ function renderStats() {
     options: { plugins: { legend: { position: "bottom", labels: { boxWidth: 12 } } } },
   });
 
-  const pages = pagesByMonth(books, year);
-  state.charts.pages = new Chart($("#chart-pages"), {
-    type: "bar",
+  const monthly = monthlyActivity(state.books, year);
+  $("#chart-monthly-title").textContent = year === "all"
+    ? "Прочитано за последние 12 месяцев"
+    : `Прочитано по месяцам, ${year}`;
+  const isSelected = (k) => month === "all"
+    || (year === "all" ? k.endsWith(`-${month}`) : k === `${year}-${month}`);
+  const barColor = (alpha) => monthly.keys.map((k) => (
+    isSelected(k) ? `rgba(95, 168, 122, ${alpha})` : "rgba(95, 168, 122, 0.25)"
+  ));
+  state.charts.monthly = new Chart($("#chart-monthly"), {
     data: {
-      labels: pages.labels,
-      datasets: [{
-        label: "Страницы",
-        data: pages.values,
-        backgroundColor: "rgba(95, 168, 122, 0.75)",
-        borderRadius: 8,
-      }],
+      labels: monthly.labels,
+      datasets: [
+        {
+          type: "bar",
+          label: "Книг",
+          data: monthly.books,
+          backgroundColor: barColor(0.85),
+          borderRadius: 8,
+          yAxisID: "y",
+        },
+        {
+          type: "line",
+          label: "Страниц",
+          data: monthly.pages,
+          borderColor: "#d4a84b",
+          backgroundColor: "#d4a84b",
+          tension: 0.35,
+          pointRadius: 3,
+          yAxisID: "y1",
+        },
+      ],
     },
     options: {
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, grid: { color: "rgba(168,212,181,0.08)" } }, x: { grid: { display: false } } },
+      onClick: (_, elements) => {
+        const idx = elements[0]?.index;
+        if (idx === undefined || !monthly.books[idx]) return;
+        const [y, m] = monthly.keys[idx].split("-");
+        const again = year === y && month === m;
+        yearSel.value = y;
+        monthSel.value = "all";
+        fillPeriodSelects(yearSel, monthSel, state.books);
+        monthSel.value = again ? "all" : m;
+        // перерисовка удаляет график — нельзя делать это внутри его же обработчика
+        setTimeout(renderStats, 0);
+      },
+      plugins: { legend: { position: "bottom", labels: { boxWidth: 12 } } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: "книги" }, grid: { color: "rgba(168,212,181,0.08)" } },
+        y1: { beginAtZero: true, position: "right", title: { display: true, text: "страницы" }, grid: { display: false } },
+        x: { grid: { display: false } },
+      },
     },
   });
 
@@ -954,6 +1090,8 @@ function bindEvents() {
   $("#btn-delete").addEventListener("click", deleteCurrentBook);
   $("#book-form").addEventListener("submit", saveBookFromForm);
   $("#field-rating").addEventListener("input", updateRatingOutput);
+  $("#field-status").addEventListener("change", autofillDates);
+  $("#period-reset").addEventListener("click", resetPeriod);
   $("#field-cover").addEventListener("input", updateCoverPreview);
   $("#btn-lookup").addEventListener("click", runLookup);
   $("#lookup-query").addEventListener("keydown", (e) => {
@@ -989,6 +1127,11 @@ function bindEvents() {
   });
 
   $("#stats-year").addEventListener("change", renderStats);
+  $("#stats-month").addEventListener("change", renderStats);
+  $("#period-books").addEventListener("click", (e) => {
+    const item = e.target.closest(".period-book");
+    if (item) openDetail(item.dataset.id);
+  });
 
   $("#btn-add-challenge").addEventListener("click", openChallengeModal);
   $("#challenge-close").addEventListener("click", () => $("#challenge-modal").close());

@@ -104,6 +104,10 @@
           </div>
         </div>
       </div>
+      <div id="period-summary" class="period-summary hidden">
+        <span id="period-text"></span>
+        <button type="button" class="btn ghost" id="period-reset">Сбросить</button>
+      </div>
       <div id="library-empty" class="empty-state hidden">
         <p class="empty-title">Полка пока пуста</p>
         <p class="empty-text">Добавьте первую книгу — можно искать по русским каталогам и подтянуть обложку.</p>
@@ -119,19 +123,30 @@
           <p class="eyebrow">Обзор чтения</p>
           <h2 class="section-title">Ваша инфографика</h2>
         </div>
-        <select id="stats-year">
-          <option value="all">Все годы</option>
-        </select>
+        <div class="stats-period">
+          <select id="stats-year" aria-label="Год">
+            <option value="all">Все годы</option>
+          </select>
+          <select id="stats-month" aria-label="Месяц">
+            <option value="all">Все месяцы</option>
+          </select>
+        </div>
       </div>
+      <p class="stats-caption" id="stats-caption"></p>
       <div class="kpi-row" id="kpi-row"></div>
       <div class="charts-grid">
+        <article class="panel chart-panel wide">
+          <h3 id="chart-monthly-title">Прочитано по месяцам</h3>
+          <p class="chart-hint">Нажмите на столбик, чтобы открыть месяц</p>
+          <canvas id="chart-monthly"></canvas>
+        </article>
+        <article class="panel chart-panel wide">
+          <h3 id="period-books-title">Книги периода</h3>
+          <div id="period-books" class="period-books"></div>
+        </article>
         <article class="panel chart-panel">
           <h3>Жанры</h3>
           <canvas id="chart-genres"></canvas>
-        </article>
-        <article class="panel chart-panel">
-          <h3>Страницы по месяцам</h3>
-          <canvas id="chart-pages"></canvas>
         </article>
         <article class="panel chart-panel">
           <h3>Оценки</h3>

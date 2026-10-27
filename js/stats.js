@@ -7,17 +7,67 @@ const STATUS_LABELS = {
 };
 
 const MONTHS = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+export const MONTH_NAMES = [
+  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+];
 
 export { STATUS_LABELS };
 
-export function filterBooksByYear(books, year) {
-  if (year === "all") return books;
-  const y = String(year);
+const isRead = (b) => b.status === "finished" || b.status === "reread";
+
+// Дата, к которой относится книга: окончание, иначе начало, иначе день добавления на полку.
+export function bookDate(b) {
+  return (b.finishedAt || b.startedAt || b.createdAt || b.updatedAt || "").slice(0, 10);
+}
+
+export function filterBooksByPeriod(books, year, month = "all") {
   return books.filter((b) => {
-    const fin = (b.finishedAt || "").slice(0, 4);
-    const start = (b.startedAt || "").slice(0, 4);
-    return fin === y || start === y || (!fin && !start && (b.updatedAt || "").slice(0, 4) === y);
+    const d = bookDate(b);
+    if (year !== "all" && d.slice(0, 4) !== String(year)) return false;
+    if (month !== "all" && d.slice(5, 7) !== month) return false;
+    return true;
   });
+}
+
+// Счётчики по месяцам выбранного года ("YYYY-MM" → число книг).
+export function monthCounts(books, year) {
+  const counts = new Map();
+  for (const b of books) {
+    const d = bookDate(b);
+    if (year !== "all" && d.slice(0, 4) !== String(year)) continue;
+    const m = d.slice(5, 7);
+    if (m) counts.set(m, (counts.get(m) || 0) + 1);
+  }
+  return counts;
+}
+
+// Прочитанные книги и страницы по месяцам: за год — 12 месяцев, за всё время — последние 12.
+export function monthlyActivity(books, year, today = new Date()) {
+  let keys;
+  let labels;
+  if (year === "all") {
+    keys = [];
+    labels = [];
+    for (let i = 11; i >= 0; i -= 1) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+      labels.push(`${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`);
+    }
+  } else {
+    keys = MONTHS.map((_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+    labels = [...MONTHS];
+  }
+  const books_ = keys.map(() => 0);
+  const pages = keys.map(() => 0);
+  for (const b of books) {
+    if (!isRead(b)) continue;
+    const idx = keys.indexOf(bookDate(b).slice(0, 7));
+    if (idx === -1) continue;
+    books_[idx] += 1;
+    pages[idx] += Number(b.pages) || 0;
+  }
+  return { keys, labels, books: books_, pages };
 }
 
 export function computeKpis(books) {
@@ -55,18 +105,6 @@ export function genreDistribution(books) {
     .slice(0, 10);
 }
 
-export function pagesByMonth(books, year) {
-  const counts = Array(12).fill(0);
-  const y = year === "all" ? null : String(year);
-  for (const b of books) {
-    if (!b.finishedAt || !(Number(b.pages) > 0)) continue;
-    if (y && !b.finishedAt.startsWith(y)) continue;
-    const month = Number(b.finishedAt.slice(5, 7)) - 1;
-    if (month >= 0 && month < 12) counts[month] += Number(b.pages);
-  }
-  return { labels: MONTHS, values: counts };
-}
-
 export function ratingHistogram(books) {
   const buckets = [];
   for (let r = 0; r <= 10; r += 0.5) buckets.push({ rating: r, count: 0 });
@@ -96,8 +134,8 @@ export function statusDistribution(books) {
 export function booksPerYear(books) {
   const map = new Map();
   for (const b of books) {
-    if (b.status !== "finished" && b.status !== "reread") continue;
-    const y = (b.finishedAt || b.updatedAt || "").slice(0, 4);
+    if (!isRead(b)) continue;
+    const y = bookDate(b).slice(0, 4);
     if (!/^\d{4}$/.test(y)) continue;
     map.set(y, (map.get(y) || 0) + 1);
   }
@@ -119,10 +157,8 @@ export function topAuthors(books, limit = 8) {
 export function availableYears(books) {
   const set = new Set();
   for (const b of books) {
-    for (const d of [b.finishedAt, b.startedAt, b.createdAt]) {
-      const y = (d || "").slice(0, 4);
-      if (/^\d{4}$/.test(y)) set.add(y);
-    }
+    const y = bookDate(b).slice(0, 4);
+    if (/^\d{4}$/.test(y)) set.add(y);
   }
   return [...set].sort((a, b) => b.localeCompare(a));
 }
@@ -131,9 +167,8 @@ export function challengeProgress(challenge, books) {
   const from = challenge.from;
   const to = challenge.to;
   const inRange = (b) => {
-    const d = b.finishedAt || b.updatedAt || "";
-    if (!d) return false;
-    const day = d.slice(0, 10);
+    const day = bookDate(b);
+    if (!day) return false;
     return day >= from && day <= to;
   };
 

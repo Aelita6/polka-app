@@ -247,6 +247,7 @@ main {
 .filters select,
 .section-head input[type="search"],
 #stats-year,
+#stats-month,
 label input,
 label select,
 label textarea,
@@ -272,7 +273,8 @@ label textarea:focus,
 .lookup-row input:focus,
 #field-cover:focus,
 .section-head input:focus,
-#stats-year:focus {
+#stats-year:focus,
+#stats-month:focus {
   border-color: var(--moss-bright);
   box-shadow: 0 0 0 3px rgba(95, 168, 122, 0.2);
 }
@@ -1166,5 +1168,130 @@ textarea {
 @media (max-width: 900px) {
   .sync-body {
     padding: 1rem;
+  }
+}
+
+/* ---------- Period ---------- */
+.stats-period {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 190px));
+  gap: 0.5rem;
+}
+
+.stats-caption {
+  margin: -0.6rem 0 1rem;
+  color: var(--leaf);
+  font-weight: 600;
+}
+
+.chart-hint {
+  margin: -0.4rem 0 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.period-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: -0.6rem 0 1.1rem;
+  padding: 0.6rem 0.6rem 0.6rem 1rem;
+  border-radius: 14px;
+  background: rgba(95, 168, 122, 0.12);
+  border: 1px solid rgba(168, 212, 181, 0.16);
+  color: var(--leaf);
+  font-weight: 600;
+}
+
+.period-books {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.6rem;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.period-book {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.45rem;
+  border: 1px solid rgba(168, 212, 181, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.period-book:hover {
+  border-color: var(--moss-bright);
+}
+
+.period-cover {
+  flex: none;
+  width: 42px;
+  height: 62px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.period-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.period-cover .cover-fallback {
+  font-size: 0.5rem;
+  padding: 0.2rem;
+}
+
+.period-book-meta {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.period-book-meta .title,
+.period-book-meta .author {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.period-book-meta .title {
+  font-weight: 600;
+}
+
+.period-book-meta .author,
+.period-book-info {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .stats-period {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .period-books {
+    grid-template-columns: 1fr;
+  }
+
+  .period-summary {
+    flex-wrap: nowrap;
+    font-size: 0.85rem;
+  }
+
+  .period-summary .btn {
+    flex: none;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.78rem;
   }
 }
