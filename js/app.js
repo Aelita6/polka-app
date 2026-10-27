@@ -891,7 +891,7 @@ function renderStats() {
     },
   });
 
-  $("#top-authors").innerHTML = topAuthors(books).map(([name, count]) => `
+  $("#top-authors").innerHTML = topAuthors(state.books).map(([name, count]) => `
     <li><span>${escapeHtml(name)}</span><span class="count">${count}</span></li>
   `).join("") || `<li style="color:var(--text-muted)">Пока нет данных</li>`;
 }

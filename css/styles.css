@@ -493,6 +493,7 @@ label textarea:focus,
   background: linear-gradient(160deg, rgba(95, 168, 122, 0.16), rgba(255, 255, 255, 0.03));
   border: 1px solid rgba(168, 212, 181, 0.12);
   animation: card-in 0.5s var(--ease) both;
+  min-width: 0;
 }
 
 .kpi .label {
@@ -505,10 +506,15 @@ label textarea:focus,
 
 .kpi .value {
   margin: 0.35rem 0 0;
-  font-family: var(--font-brand);
-  font-size: 1.85rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-family: var(--font-ui);
+  font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .charts-grid {
