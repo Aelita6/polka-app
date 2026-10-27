@@ -120,8 +120,9 @@ export async function pushSyncLibrary(cfg, payload) {
   return true;
 }
 
+// При равном времени правки побеждает версия из GitHub (b).
 function newer(a, b) {
-  return (a.updatedAt || a.createdAt || "") >= (b.updatedAt || b.createdAt || "") ? a : b;
+  return (a.updatedAt || a.createdAt || "") > (b.updatedAt || b.createdAt || "") ? a : b;
 }
 
 // Объединение двух версий полки: берём все книги, при совпадении — более свежую правку.
