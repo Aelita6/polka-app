@@ -17,8 +17,8 @@ import {
   createDemoBooks,
   createDemoChallenges,
   uid,
-} from "./storage.js";
-import { searchBooks, loadPublishers, SOURCE_LABELS } from "./api.js";
+} from "./storage.js?v=20261027b";
+import { searchBooks, loadPublishers, SOURCE_LABELS } from "./api.js?v=20261027b";
 import {
   DEFAULT_REPO,
   loadSync,
@@ -31,7 +31,7 @@ import {
   mergeLibraries,
   syncLinkFor,
   takeTokenFromHash,
-} from "./sync.js";
+} from "./sync.js?v=20261027b";
 import {
   STATUS_LABELS,
   MONTH_NAMES,
@@ -49,7 +49,7 @@ import {
   challengeProgress,
   collectGenres,
   parseList,
-} from "./stats.js";
+} from "./stats.js?v=20261027b";
 
 const state = {
   books: [],
